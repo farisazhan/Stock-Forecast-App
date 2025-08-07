@@ -1,9 +1,19 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template, session, redirect, url_for, flash
 from flask_cors import CORS
+import os
 
 app = Flask(__name__)
 # Enable CORS to allow requests from the frontend HTML file
 CORS(app)
+
+# A secret key is required for session management.
+# In a production app, you should set this from an environment variable.
+app.secret_key = os.urandom(24)
+
+# Simple in-memory user store for demonstration purposes.
+USERS = {
+    "admin": "password"
+}
 
 def simple_moving_average(data, window):
     """
@@ -57,12 +67,52 @@ def exponential_smoothing(data, alpha):
 
     return future_forecasts
 
+@app.route('/')
+def index():
+    """
+    Serves the main forecasting page, but only if the user is logged in.
+    Otherwise, it redirects to the login page.
+    """
+    if 'username' not in session:
+        return redirect(url_for('login'))
+    return render_template('index.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    """
+    Handles user login. Shows the login form on GET and processes credentials on POST.
+    """
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        # Check if user exists and password is correct
+        if username in USERS and USERS[username] == password:
+            session['username'] = username
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid username or password')
+            return redirect(url_for('login'))
+            
+    return render_template('login.html')
+
+@app.route('/logout')
+def logout():
+    """
+    Logs the user out by clearing the session.
+    """
+    session.pop('username', None)
+    return redirect(url_for('login'))
 
 @app.route('/forecast', methods=['POST'])
 def get_forecast():
     """
     API endpoint to receive data and return a forecast.
     """
+    # Protect this endpoint to ensure only logged-in users can get a forecast.
+    if 'username' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
     try:
         payload = request.get_json()
         data = payload.get('data')

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Stock Forecasting</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+    <div class="container mx-auto p-4 md:p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">Warehouse Stock Forecasting</h1>
+            <!-- Logout Button -->
+            <a href="{{ url_for('logout') }}" class="px-4 py-2 font-semibold text-white bg-red-600 rounded-md hover:bg-red-700">Logout</a>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Historical Data</h2>
+            <div id="data-years-container">
+                <!-- Year 1 -->
+                <div class="year-entry mb-4 p-4 border rounded-md">
+                    <h3 class="font-semibold text-lg mb-2">Year 1</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input type="number" placeholder="Q1 Stock" class="quarter-input w-full p-2 border rounded-md" data-year="1" data-quarter="1">
+                        <input type="number" placeholder="Q2 Stock" class="quarter-input w-full p-2 border rounded-md" data-year="1" data-quarter="2">
+                        <input type="number" placeholder="Q3 Stock" class="quarter-input w-full p-2 border rounded-md" data-year="1" data-quarter="3">
+                        <input type="number" placeholder="Q4 Stock" class="quarter-input w-full p-2 border rounded-md" data-year="1" data-quarter="4">
+                    </div>
+                </div>
+            </div>
+            <button id="add-year-btn" class="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Add Another Year</button>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Forecasting Method</h2>
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Method Selection -->
+                <div class="flex-1">
+                    <label for="method-select" class="block mb-2 font-medium text-gray-600">Method</label>
+                    <select id="method-select" class="w-full p-2 border rounded-md">
+                        <option value="sma">Simple Moving Average (SMA)</option>
+                        <option value="es">Exponential Smoothing (ES)</option>
+                    </select>
+                </div>
+                <!-- Parameters -->
+                <div class="flex-1">
+                    <div id="sma-params">
+                        <label for="sma-window" class="block mb-2 font-medium text-gray-600">Window (Quarters)</label>
+                        <input type="number" id="sma-window" value="3" class="w-full p-2 border rounded-md">
+                    </div>
+                    <div id="es-params" class="hidden">
+                        <label for="es-alpha" class="block mb-2 font-medium text-gray-600">Alpha (0 to 1)</label>
+                        <input type="number" id="es-alpha" value="0.5" step="0.1" min="0" max="1" class="w-full p-2 border rounded-md">
+                    </div>
+                </div>
+            </div>
+            <button id="forecast-btn" class="mt-6 w-full px-4 py-3 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700">Generate Forecast</button>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-container" class="bg-white p-6 rounded-lg shadow-lg hidden">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-700">Forecast for Next Year</h2>
+            <div id="forecast-output" class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                <!-- Forecast results will be injected here -->
+            </div>
+            <div id="error-output" class="mt-4 text-red-600 font-semibold"></div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const methodSelect = document.getElementById('method-select');
+            const smaParams = document.getElementById('sma-params');
+            const esParams = document.getElementById('es-params');
+            const addYearBtn = document.getElementById('add-year-btn');
+            const dataYearsContainer = document.getElementById('data-years-container');
+            const forecastBtn = document.getElementById('forecast-btn');
+            const resultsContainer = document.getElementById('results-container');
+            const forecastOutput = document.getElementById('forecast-output');
+            const errorOutput = document.getElementById('error-output');
+
+            let yearCount = 1;
+
+            // Toggle parameter inputs based on selected method
+            methodSelect.addEventListener('change', function () {
+                smaParams.classList.toggle('hidden', this.value !== 'sma');
+                esParams.classList.toggle('hidden', this.value !== 'es');
+            });
+
+            // Add a new year of data inputs
+            addYearBtn.addEventListener('click', function () {
+                yearCount++;
+                const newYearEntry = document.createElement('div');
+                newYearEntry.className = 'year-entry mb-4 p-4 border rounded-md';
+                newYearEntry.innerHTML = `
+                    <h3 class="font-semibold text-lg mb-2">Year ${yearCount}</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <input type="number" placeholder="Q1 Stock" class="quarter-input w-full p-2 border rounded-md" data-year="${yearCount}" data-quarter="1">
+                        <input type="number" placeholder="Q2 Stock" class="quarter-input w-full p-2 border rounded-md" data-year="${yearCount}" data-quarter="2">
+                        <input type="number" placeholder="Q3 Stock" class="quarter-input w-full p-2 border rounded-md" data-year="${yearCount}" data-quarter="3">
+                        <input type="number" placeholder="Q4 Stock" class="quarter-input w-full p-2 border rounded-md" data-year="${yearCount}" data-quarter="4">
+                    </div>
+                `;
+                dataYearsContainer.appendChild(newYearEntry);
+            });
+
+            // Handle forecast generation
+            forecastBtn.addEventListener('click', function () {
+                // 1. Collect data
+                const quarterInputs = document.querySelectorAll('.quarter-input');
+                const data = Array.from(quarterInputs)
+                    .map(input => parseFloat(input.value))
+                    .filter(value => !isNaN(value));
+
+                if (data.length === 0) {
+                    displayError('Please enter at least one historical data point.');
+                    return;
+                }
+
+                // 2. Collect method and parameters
+                const method = methodSelect.value;
+                let params = {};
+                if (method === 'sma') {
+                    params.window = parseInt(document.getElementById('sma-window').value);
+                    if (isNaN(params.window) || params.window <= 0) {
+                        displayError('SMA window must be a positive number.');
+                        return;
+                    }
+                } else if (method === 'es') {
+                    params.alpha = parseFloat(document.getElementById('es-alpha').value);
+                     if (isNaN(params.alpha) || params.alpha < 0 || params.alpha > 1) {
+                        displayError('ES alpha must be between 0 and 1.');
+                        return;
+                    }
+                }
+
+                // 3. Prepare payload
+                const payload = {
+                    data: data,
+                    method: method,
+                    params: params
+                };
+
+                // 4. Fetch forecast from backend
+                fetch("{{ url_for('get_forecast') }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => {
+                    if (response.status === 401) {
+                        // If unauthorized, redirect to login page
+                        window.location.href = "{{ url_for('login') }}";
+                        return;
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    if (result.error) {
+                        displayError(result.error);
+                    } else if (result.forecast) {
+                        displayForecast(result.forecast);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    displayError('An unexpected error occurred. Check the console for details.');
+                });
+            });
+
+            function displayForecast(forecast) {
+                resultsContainer.classList.remove('hidden');
+                errorOutput.textContent = '';
+                forecastOutput.innerHTML = ''; // Clear previous results
+
+                forecast.forEach((value, index) => {
+                    const quarterDiv = document.createElement('div');
+                    quarterDiv.className = 'p-4 bg-gray-100 rounded-md';
+                    quarterDiv.innerHTML = `
+                        <p class="font-semibold text-gray-600">Quarter ${index + 1}</p>
+                        <p class="text-2xl font-bold text-blue-600">${Math.round(value)}</p>
+                    `;
+                    forecastOutput.appendChild(quarterDiv);
+                });
+            }
+
+            function displayError(message) {
+                resultsContainer.classList.remove('hidden');
+                forecastOutput.innerHTML = ''; // Clear forecast results
+                errorOutput.textContent = `Error: ${message}`;
+            }
+        });
+    </script>
+</body>
+</html>
+
