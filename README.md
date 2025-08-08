@@ -1,17 +1,18 @@
 # Warehouse Stock Forecasting
 
-A simple web application to forecast future warehouse stock levels based on historical data. This tool implements two common forecasting methods: Simple Moving Average (SMA) and Exponential Smoothing (ES).
+A simple web application to forecast future warehouse stock levels based on historical data. This tool implements two common forecasting methods: Simple Moving Average (SMA) and Exponential Smoothing (ES), protected by a user login system.
 
-The frontend is a single HTML file using Tailwind CSS and vanilla JavaScript, and the backend is a lightweight Flask server.
+The frontend uses HTML templates with Tailwind CSS and vanilla JavaScript, and the backend is a lightweight Flask server that manages user sessions.
 
 ## Features
 
+- **User Authentication**: Secure login system to protect the forecasting tool.
 - **Dynamic Data Entry**: Input historical quarterly stock data for one or more years.
 - **Forecasting Methods**: Choose between Simple Moving Average (SMA) and Exponential Smoothing (ES).
 - **Customizable Parameters**: Adjust the moving average window for SMA or the alpha smoothing factor for ES.
 - **Instant Forecasts**: Generate and view the stock forecast for the next four quarters.
 - **Clean UI**: The user interface is built with Tailwind CSS for a modern and responsive experience.
-- **Clear Error Handling**: Provides user-friendly messages for invalid inputs.
+- **Clear Error Handling**: Provides user-friendly messages for invalid inputs or login failures.
 
 ## Tech Stack
 
@@ -69,26 +70,39 @@ Follow these instructions to get the project running on your local machine.
     ```
     The server will start on `http://127.0.0.1:5000`.
 
-5.  **Launch the frontend:**
+5.  **Launch the application:**
     
-    Open the `index.html` file in your web browser.
+    Open your web browser and navigate to `http://127.0.0.1:5000`.
 
 ## How to Use
 
-1.  Open `index.html` in your browser.
-2.  Enter the historical quarterly stock data. Use the "Add Another Year" button if you need more input fields.
-3.  Select a forecasting method (Simple Moving Average or Exponential Smoothing).
-4.  Adjust the parameters for the selected method (e.g., the "Window" for SMA).
-5.  Click the "Generate Forecast" button.
-6.  The forecasted stock levels for the next four quarters will appear at the bottom of the page.
+1.  Start the backend server by running `python app.py`.
+2.  Open your web browser and go to `http://127.0.0.1:5000`.
+3.  You will be directed to the login page. Use the following credentials for this demo:
+    - **Username**: `admin`
+    - **Password**: `password`
+4.  After logging in, you will see the main forecasting page.
+5.  Enter the historical quarterly stock data. Use the "Add Another Year" button if you need more input fields.
+6.  Select a forecasting method (Simple Moving Average or Exponential Smoothing).
+7.  Adjust the parameters for the selected method (e.g., the "Window" for SMA).
+8.  Click the "Generate Forecast" button.
+9.  The forecasted stock levels for the next four quarters will appear at the bottom of the page.
+10. Click the "Logout" button to end your session and return to the login page.
 
-## API Endpoint
+## API Endpoints
 
-The application uses a single API endpoint to perform the calculations.
+The application uses the following endpoints to handle authentication and forecasting.
+
+| Method   | Endpoint  | Protection    | Description                                                              |
+|----------|-----------|---------------|--------------------------------------------------------------------------|
+| `GET`    | `/`       | Authenticated | Serves the main forecasting page. Redirects to `/login` if not logged in.  |
+| `GET/POST` | `/login`  | Public        | Displays the login form and handles user authentication.                 |
+| `GET`    | `/logout` | Public        | Logs the user out and redirects to the login page.                       |
+| `POST`   | `/forecast` | Authenticated | Accepts data and returns a 4-quarter forecast. Requires a valid session. |
 
 ### `POST /forecast`
 
-Accepts historical data and forecasting parameters and returns a 4-quarter forecast.
+Accepts historical data and forecasting parameters and returns a 4-quarter forecast. This endpoint is protected and requires the user to be logged in.
 
 **Request Body Example:**
 ```json
